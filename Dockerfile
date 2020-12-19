@@ -18,6 +18,7 @@ RUN apt-get -qq update \
     && DEBIAN_FRONTEND=noninteractive && apt-get -qq install -y texlive-latex-base texlive-generic-recommended \
     	texlive-generic-extra texlive-fonts-recommended  texlive-latex-extra texlive-lang-german texlive-lang-english  \
     	texlive-fonts-extra texlive-font-utils texlive-extra-utils texlive-bibtex-extra texlive-xetex texlive-luatex \
+    && rm -rf /usr/share/doc/* \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python
@@ -26,9 +27,17 @@ RUN apt-get -qq update \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Pandoc
-RUN apt-get update \
- 	&& DEBIAN_FRONTEND=noninteractive && apt-get -qq install -y pandoc \
-	&& rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install ghc cabal-install -y \
+		    && cabal update  \
+				&& cabal install pandoc-types \
+		    && echo export PATH='$PATH:$HOME/.cabal/bin' >> $HOME/.bashrc \
+		    && echo export PATH='$PATH:$HOME/.cabal/bin' >> $HOME/.profile \
+			&& rm -rf /var/lib/apt/lists/*
+
+		RUN apt-get update && apt-get install wget -y \
+			&& wget https://github.com/jgm/pandoc/releases/download/2.3/pandoc-2.3-1-amd64.deb \
+			&& dpkg -i pandoc-2.3-1-amd64.deb \
+			&& rm pandoc-2.3-1-amd64.deb
 
 # Install pandoc crossref
 RUN apt-get -qq update \
