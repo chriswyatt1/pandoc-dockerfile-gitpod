@@ -23,7 +23,7 @@ RUN apt-get -qq update \
 
 # Install Python
 RUN apt-get -qq update \
-    && DEBIAN_FRONTEND=noninteractive && apt-get -qq install -y Python3.6 \
+    && DEBIAN_FRONTEND=noninteractive && apt-get -qq install -y Python3.9 \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Pandoc
