@@ -35,7 +35,7 @@ RUN apt-get update && apt-get install ghc cabal-install -y \
 			&& rm -rf /var/lib/apt/lists/*
 
 		RUN apt-get update && apt-get install wget -y \
-			&& wget https://github.com/jgm/pandoc/releases/download/2.3/pandoc-2.11-1-amd64.deb \
+			&& wget https://github.com/jgm/pandoc/releases/download/2.11/pandoc-2.11-1-amd64.deb \
 			&& dpkg -i pandoc-2.11-1-amd64.deb \
 			&& rm pandoc-2.11-1-amd64.deb
 
