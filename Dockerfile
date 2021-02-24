@@ -35,17 +35,17 @@ RUN apt-get update && apt-get install ghc cabal-install -y \
 			&& rm -rf /var/lib/apt/lists/*
 
 		RUN apt-get update && apt-get install wget -y \
-			&& wget https://github.com/jgm/pandoc/releases/download/2.3/pandoc-2.3-1-amd64.deb \
-			&& dpkg -i pandoc-2.3-1-amd64.deb \
-			&& rm pandoc-2.3-1-amd64.deb
+			&& wget https://github.com/jgm/pandoc/releases/download/2.3/pandoc-2.11-1-amd64.deb \
+			&& dpkg -i pandoc-2.11-1-amd64.deb \
+			&& rm pandoc-2.11-1-amd64.deb
 
 # Install pandoc crossref
 RUN apt-get -qq update \
     && DEBIAN_FRONTEND=noninteractive && apt-get -qq install -y wget \
-    && wget https://github.com/lierdakil/pandoc-crossref/releases/download/v0.3.3.0/linux-ghc84-pandoc23.tar.gz \
-    && tar xvf linux-ghc84-pandoc23.tar.gz \
+    && wget https://github.com/lierdakil/pandoc-crossref/releases/download/v0.3.8.2/pandoc-crossref-Linux.tar.xz \
+    && tar xvf pandoc-crossref-Linux.tar.xz \
     && mv pandoc-crossref* /usr/bin/ \
-    && rm linux-ghc84-pandoc23.tar.gz \
+    && rm pandoc-crossref-Linux.tar.xz \
     && DEBIAN_FRONTEND=noninteractive && apt-get -qq -y remove wget  \
     && DEBIAN_FRONTEND=noninteractive && apt-get -qq -y autoremove \
     && rm -rf /var/lib/apt/lists/*
