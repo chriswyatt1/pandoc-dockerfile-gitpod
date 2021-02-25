@@ -43,9 +43,9 @@ RUN apt-get update && apt-get install ghc cabal-install -y \
 # Install pandoc crossref
 RUN apt-get -qq update \
     && DEBIAN_FRONTEND=noninteractive && apt-get -qq install -y wget \
-    && wget https://github.com/lierdakil/pandoc-crossref/releases/download/v0.3.8.2/pandoc-crossref-Linux.tar.xz \
-    && tar xvf pandoc-crossref-Linux.tar.xz \
-    && rm pandoc-crossref-Linux.tar.xz \
+    && wget https://github.com/lierdakil/pandoc-crossref/releases/download/v0.3.6.4/pandoc-crossref-Linux-2.9.2.1.tar.xz \
+    && tar xvf pandoc-crossref-Linux-2.9.2.1.tar.xz \
+    && rm pandoc-crossref-Linux-2.9.2.1.tar.xz \
     && mv pandoc-crossref* /usr/bin/ \
     && DEBIAN_FRONTEND=noninteractive && apt-get -qq -y remove wget  \
     && DEBIAN_FRONTEND=noninteractive && apt-get -qq -y autoremove \
