@@ -29,16 +29,17 @@ RUN apt-get -qq update \
 # Install Pandoc
 RUN apt-get update && apt-get install ghc cabal-install -y \
 		    && cabal update  \
-			&& cabal install pandoc-types-1.22 \
+			&& cabal install pandoc-types \
 		    && echo export PATH='$PATH:$HOME/.cabal/bin' >> $HOME/.bashrc \
 		    && echo export PATH='$PATH:$HOME/.cabal/bin' >> $HOME/.profile \
 			&& rm -rf /var/lib/apt/lists/*
 
 		RUN apt-get update && apt-get install wget -y \
-			&& wget https://github.com/jgm/pandoc/releases/download/2.11/pandoc-2.11-1-amd64.deb \
-			&& dpkg -i pandoc-2.11-1-amd64.deb \
-			&& rm pandoc-2.11-1-amd64.deb
-
+			&& wget https://github.com/jgm/pandoc/releases/download/2.9/pandoc-2.9-1-amd64.deb \
+			&& dpkg -i pandoc-2.9-1-amd64.deb \
+			&& rm pandoc-2.9-1-amd64.deb
+			
+			
 # Install pandoc crossref
 RUN apt-get -qq update \
     && DEBIAN_FRONTEND=noninteractive && apt-get -qq install -y wget \
@@ -49,4 +50,5 @@ RUN apt-get -qq update \
     && DEBIAN_FRONTEND=noninteractive && apt-get -qq -y remove wget  \
     && DEBIAN_FRONTEND=noninteractive && apt-get -qq -y autoremove \
     && rm -rf /var/lib/apt/lists/*
+
 
