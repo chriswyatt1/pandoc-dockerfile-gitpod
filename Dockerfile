@@ -29,7 +29,7 @@ RUN apt-get -qq update \
 # Install Pandoc
 RUN apt-get update && apt-get install ghc cabal-install -y \
 		    && cabal update  \
-			&& cabal install pandoc-types \
+			&& cabal install pandoc-types-1.22 \
 		    && echo export PATH='$PATH:$HOME/.cabal/bin' >> $HOME/.bashrc \
 		    && echo export PATH='$PATH:$HOME/.cabal/bin' >> $HOME/.profile \
 			&& rm -rf /var/lib/apt/lists/*
