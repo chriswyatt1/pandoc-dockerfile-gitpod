@@ -1,0 +1,502 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<?asciidoc-toc?>
+<?asciidoc-numbered?>
+
+<article lang="en">
+<articleinfo>
+    <title>Simple RNA-Seq pipeline</title>
+</articleinfo>
+<simpara>To demonstrate a real-world biomedical scenario, we will implement a proof of concept RNA-Seq pipeline which:</simpara>
+<orderedlist numeration="arabic">
+<listitem>
+<simpara>
+Indexes a transcriptome file
+</simpara>
+</listitem>
+<listitem>
+<simpara>
+Performs quality controls
+</simpara>
+</listitem>
+<listitem>
+<simpara>
+Performs quantification
+</simpara>
+</listitem>
+<listitem>
+<simpara>
+Creates a MultiQC report
+</simpara>
+</listitem>
+</orderedlist>
+<simpara>This will be done using a series of seven scripts,
+each of which builds on the previous to create a complete workflow.
+You can find these in the tutorial folder (<literal>script1.nf</literal> - <literal>script7.nf</literal>).</simpara>
+<section id="_define_the_pipeline_parameters">
+<title>Define the pipeline parameters</title>
+<simpara>Parameters are inputs and options that can be changed when the pipeline is run.</simpara>
+<simpara>The script <literal>script1.nf</literal> defines the pipeline input parameters.</simpara>
+<programlisting language="nextflow" linenumbering="linenums">params.reads = "$projectDir/data/ggal/*_{1,2}.fq"
+params.transcriptome_file = "$projectDir/data/ggal/transcriptome.fa"
+params.multiqc = "$projectDir/multiqc"
+
+println "reads: $params.reads"</programlisting>
+<simpara>Run it by using the following command:</simpara>
+<literallayout class="monospaced">nextflow run script1.nf</literallayout>
+<simpara>Try to specify a different input parameter in your execution command, for example:</simpara>
+<literallayout class="monospaced">nextflow run script1.nf --reads "/workspace/nf-training-public/nf-training/data/ggal/gut_{1,2}.fq"</literallayout>
+<simpara>Modify the <literal>script1.nf</literal> by adding a fourth parameter named <literal>outdir</literal> and set it to a default path
+that will be used as the pipeline output directory.</simpara>
+<example>
+<title>Click here for the answer:</title>
+<programlisting language="nextflow" linenumbering="linenums">params.reads = "$projectDir/data/ggal/*_{1,2}.fq"
+params.transcriptome_file = "$projectDir/data/ggal/transcriptome.fa"
+params.multiqc = "$projectDir/multiqc"
+params.outdir = "results"</programlisting>
+</example>
+<simpara>Modify <literal>script1.nf</literal> to print all of the pipeline parameters by using a single <literal>log.info</literal> command as a <ulink url="https://www.nextflow.io/docs/latest/script.html#multi-line-strings">multiline string</ulink> statement.</simpara>
+<tip><simpara>See an example <ulink url="https://github.com/nextflow-io/rnaseq-nf/blob/3b5b49f/main.nf#L41-L48">here,window="_blank"</ulink>.</simpara></tip>
+<example>
+<title>Click here for the answer:</title>
+<simpara>Add the following to your script file:</simpara>
+<programlisting language="nextflow" linenumbering="linenums">log.info """\
+         R N A S E Q - N F   P I P E L I N E
+         ===================================
+         transcriptome: ${params.transcriptome_file}
+         reads        : ${params.reads}
+         outdir       : ${params.outdir}
+         """
+         .stripIndent()</programlisting>
+</example>
+<simpara>In this step you have learned:</simpara>
+<orderedlist numeration="arabic">
+<listitem>
+<simpara>
+How to define parameters in your pipeline script
+</simpara>
+</listitem>
+<listitem>
+<simpara>
+How to pass parameters by using the command line
+</simpara>
+</listitem>
+<listitem>
+<simpara>
+The use of <literal>$var</literal> and <literal>${var}</literal> variable placeholders
+</simpara>
+</listitem>
+<listitem>
+<simpara>
+How to use multiline strings
+</simpara>
+</listitem>
+<listitem>
+<simpara>
+How to use <literal>log.info</literal> to print information and save it in the log execution file
+</simpara>
+</listitem>
+</orderedlist>
+</section>
+<section id="_create_a_transcriptome_index_file">
+<title>Create a transcriptome index file</title>
+<simpara>Nextflow allows the execution of any command or script by using a <literal>process</literal> definition.</simpara>
+<simpara>A <literal>process</literal> is defined by providing three main declarations:
+the process <ulink url="https://www.nextflow.io/docs/latest/process.html#inputs"><literal>inputs</literal></ulink>, <ulink url="https://www.nextflow.io/docs/latest/process.html#outputs"><literal>outputs</literal></ulink>
+and command <ulink url="https://www.nextflow.io/docs/latest/process.html#script"><literal>script</literal></ulink>.</simpara>
+<simpara>To add a transcriptome <literal>index</literal> processing step, try adding the following code blocks to your <literal>script1.nf</literal>. Alternatively, these code blocks have already been added to <literal>script2.nf</literal>.</simpara>
+<programlisting language="nextflow" linenumbering="linenums">/*
+ * define the `index` process that creates a binary index
+ * given the transcriptome file
+ */
+process index {
+
+    input:
+    path transcriptome
+
+    output:
+    path 'salmon_index'
+
+    script:
+    """
+    salmon index --threads $task.cpus -t $transcriptome -i salmon_index
+    """
+}</programlisting>
+<simpara>Additionally, add a workflow scope containing an input channel definition and the index process:</simpara>
+<programlisting language="nextflow" linenumbering="linenums">workflow {
+
+    in_channel = Channel.from(params.transcriptome_file).collect()
+
+    index_ch = index( in_channel )
+
+}</programlisting>
+<simpara>Here, the <literal>transcriptome_file</literal> parameter is defined as <literal>in_channel</literal> and used as the input for the <literal>index</literal> process. The <literal>index</literal> process (using the <literal>salmon</literal> tool) creates <literal>salmon_index</literal>, an indexed transcriptome that is passed as an output to the <literal>index_ch</literal> channel.</simpara>
+<note><simpara>The <literal>input</literal> declaration defines a <literal>transcriptome</literal> path variable which is used in the <literal>script</literal> as a reference (using the dollar symbol) in the Salmon command line.</simpara></note>
+<important><simpara>Resource requirements such as CPUs and memory limits can change with different workflow executions and platforms. Nextflow can use $task.cpus as a variable for the number of CPUs. See process directives documentation for more <ulink url="https://www.nextflow.io/docs/latest/process.html#directives">details</ulink>.</simpara></important>
+<simpara>Run it by using the command:</simpara>
+<literallayout class="monospaced">nextflow run script2.nf</literallayout>
+<simpara>The execution will fail because <literal>salmon</literal> is not installed in your environment.</simpara>
+<simpara>Add the command line option <literal>-with-docker</literal> to launch the execution through a Docker container,
+as shown below:</simpara>
+<literallayout class="monospaced">nextflow run script2.nf -with-docker</literallayout>
+<simpara>This time the execution will work because it uses the Docker container <literal>nextflow/rnaseq-nf</literal> that is defined in the
+<literal>nextflow.config</literal> file in your current directory. If you are running this script locally then you will need to download docker
+to your machine, log in and activate docker, and allow the script to download the container
+containing the run scripts. You can learn more about docker <ulink url="https://www.nextflow.io/docs/latest/docker.html">here</ulink>.</simpara>
+<simpara>To avoid adding <literal>-with-docker</literal> each time you execute the script, add the following line to the <literal>nextflow.config</literal> file:</simpara>
+<literallayout class="monospaced">docker.enabled = true</literallayout>
+<simpara>Enable the Docker execution by default by adding the above setting in the <literal>nextflow.config</literal> file.</simpara>
+<simpara>Print the output of the <literal>index_ch</literal> channel by using the <ulink url="https://www.nextflow.io/docs/latest/operator.html#view">view</ulink> operator.</simpara>
+<example>
+<title>Click here for the answer:</title>
+<simpara>Add the following to the end of your script file:</simpara>
+<programlisting language="nextflow" linenumbering="linenums">index_ch.view()</programlisting>
+</example>
+<simpara>If you have more CPUs available, try changing your script to request more resources for this process. For example, see the <ulink url="https://www.nextflow.io/docs/latest/process.html#cpus">directive docs</ulink>. <literal>$task.cpus</literal> is already specified in this script, so setting the number of CPUs as a directive will tell Nextflow to run this job.</simpara>
+<example>
+<title>Click here for the answer:</title>
+<simpara>Add <literal>cpus 2</literal> to the top of the index process:</simpara>
+<programlisting language="nextflow" linenumbering="linenums">process index {
+    cpus 2
+    input:
+    ...</programlisting>
+<simpara>Then check it worked by looking at the script executed in the work directory. Look for the hexidecimal (e.g. work/7f/f285b80022d9f61e82cd7f90436aa4/), Then <literal>cat</literal> the <literal>.command.sh</literal> file.</simpara>
+</example>
+<simpara>Use the command <literal>tree work</literal> to see how Nextflow organizes the process work directory. Check <ulink url="https://www.tecmint.com/linux-tree-command-examples/">here</ulink> if you need to download <literal>tree</literal>.</simpara>
+<example>
+<title>Click here for the answer:</title>
+<simpara>It should look something like this:</simpara>
+<screen>work
+├── 17
+│   └── 263d3517b457de4525513ae5e34ea8
+│       ├── index
+│       │   ├── complete_ref_lens.bin
+│       │   ├── ctable.bin
+│       │   ├── ctg_offsets.bin
+│       │   ├── duplicate_clusters.tsv
+│       │   ├── eqtable.bin
+│       │   ├── info.json
+│       │   ├── mphf.bin
+│       │   ├── pos.bin
+│       │   ├── pre_indexing.log
+│       │   ├── rank.bin
+│       │   ├── refAccumLengths.bin
+│       │   ├── ref_indexing.log
+│       │   ├── reflengths.bin
+│       │   ├── refseq.bin
+│       │   ├── seq.bin
+│       │   └── versionInfo.json
+│       └── transcriptome.fa -&gt; /workspace/Gitpod_test/data/ggal/transcriptome.fa
+├── 7f</screen>
+</example>
+<simpara>In this step you have learned:</simpara>
+<orderedlist numeration="arabic">
+<listitem>
+<simpara>
+How to define a process executing a custom command
+</simpara>
+</listitem>
+<listitem>
+<simpara>
+How process inputs are declared
+</simpara>
+</listitem>
+<listitem>
+<simpara>
+How process outputs are declared
+</simpara>
+</listitem>
+<listitem>
+<simpara>
+How to print the content of a channel
+</simpara>
+</listitem>
+<listitem>
+<simpara>
+How to access the number of available CPUs
+</simpara>
+</listitem>
+</orderedlist>
+</section>
+<section id="_collect_read_files_by_pairs">
+<title>Collect read files by pairs</title>
+<simpara>This step shows how to match <emphasis role="strong">read</emphasis> files into pairs, so they can be mapped by <emphasis role="strong">Salmon</emphasis>.</simpara>
+<simpara>Edit the script <literal>script3.nf</literal> by adding the following statement as the last line in the workflow scope:</simpara>
+<literallayout class="monospaced">read_pairs_ch.view()</literallayout>
+<simpara>Save it and execute it with the following command:</simpara>
+<literallayout class="monospaced">nextflow run script3.nf</literallayout>
+<simpara>It will print something similar to this:</simpara>
+<literallayout class="monospaced">[gut, [/.../data/ggal/gut_1.fq, /.../data/ggal/gut_2.fq]]</literallayout>
+<simpara>The above example shows how the <literal>read_pairs_ch</literal> channel emits tuples composed of
+two elements, where the first is the read pair prefix and the second is a list
+representing the actual files.</simpara>
+<simpara>Try it again specifying different read files by using a glob pattern:</simpara>
+<literallayout class="monospaced">nextflow run script3.nf --reads 'data/ggal/*_{1,2}.fq'</literallayout>
+<important><simpara>File paths that include one or more wildcards ie. <literal>*</literal>, <literal>?</literal>, etc., MUST be
+wrapped in single-quoted characters to avoid Bash expanding the glob.</simpara></important>
+<simpara>Use the <ulink url="https://www.nextflow.io/docs/latest/operator.html#set">set</ulink> operator in place
+of <literal>=</literal> assignment to define the <literal>read_pairs_ch</literal> channel.</simpara>
+<example>
+<title>Click here for the answer:</title>
+<programlisting language="nextflow" linenumbering="linenums">Channel
+    .fromFilePairs( params.reads )
+    .set { read_pairs_ch }</programlisting>
+</example>
+<simpara>Use the <literal>checkIfExists</literal> option for the <ulink url="https://www.nextflow.io/docs/latest/channel.html#fromfilepairs">fromFilePairs</ulink> method to check if the specified path contains file pairs.</simpara>
+<example>
+<title>Click here for the answer:</title>
+<programlisting language="nextflow" linenumbering="linenums">Channel
+    .fromFilePairs( params.reads, checkIfExists: true )
+    .set { read_pairs_ch }</programlisting>
+</example>
+<simpara>In this step you have learned:</simpara>
+<orderedlist numeration="arabic">
+<listitem>
+<simpara>
+How to use <literal>fromFilePairs</literal> to handle read pair files
+</simpara>
+</listitem>
+<listitem>
+<simpara>
+How to use the <literal>checkIfExists</literal> option to check for the existence of input files
+</simpara>
+</listitem>
+<listitem>
+<simpara>
+How to use the <literal>set</literal> operator to define a new channel variable
+</simpara>
+</listitem>
+</orderedlist>
+</section>
+<section id="_perform_expression_quantification">
+<title>Perform expression quantification</title>
+<simpara><literal>script4.nf</literal> adds the <literal>quantification</literal> process as a new workflow scope line.</simpara>
+<simpara>In this workflow scope, note how the <literal>index_ch</literal> channel, declared as output in the <literal>index</literal> process, is now used as an input channel for the <literal>quantification</literal> process.</simpara>
+<simpara>Also, note how the input is declared in the <literal>quantification</literal> process, the first being a <literal>path</literal> from the <literal>index_ch</literal> and the second being a <literal>tuple</literal> composed of two elements (the <literal>sample_id</literal> and the <literal>reads</literal>) in order to match the structure of the items emitted by the <literal>read_pairs_ch</literal> channel.</simpara>
+<simpara>Execute it by using the following command:</simpara>
+<literallayout class="monospaced">nextflow run script4.nf -resume</literallayout>
+<simpara>You will see the execution of the <literal>quantification</literal> process.</simpara>
+<simpara>When using the <literal>-resume</literal> option, any step that has already been processed is skipped.</simpara>
+<simpara>Try to execute the same script again with more read files, as shown below:</simpara>
+<literallayout class="monospaced">nextflow run script4.nf -resume --reads 'data/ggal/*_{1,2}.fq'</literallayout>
+<simpara>You will notice that the <literal>quantification</literal> process is executed multiple times.</simpara>
+<simpara>Nextflow parallelizes the execution of your pipeline simply by providing multiple sets of input data to your script.</simpara>
+<note><simpara>It may be useful to apply optional settings to a specific process using <ulink url="https://www.nextflow.io/docs/latest/process.html#directives">directives</ulink> by specifying them in the process body.</simpara></note>
+<simpara>Add a <ulink url="https://www.nextflow.io/docs/latest/process.html#tag">tag</ulink> directive to the
+<literal>quantification</literal> process to provide a more readable execution log.</simpara>
+<example>
+<title>Click here for the answer:</title>
+<simpara>Add the following before the input declaration:
+```
+  tag "Salmon on $sample_id"
+```</simpara>
+</example>
+<simpara>Add a <ulink url="https://www.nextflow.io/docs/latest/process.html#publishdir">publishDir</ulink> directive
+to the <literal>quantification</literal> process to store the process results in a directory of your choice.</simpara>
+<example>
+<title>Click here for the answer:</title>
+<simpara>Add the following before the &#8216;input` declaration in the <literal>quantification</literal> process:
+```
+  publishDir params.outdir, mode:'copy&#8217;
+```</simpara>
+</example>
+<simpara>In this step you have learned:</simpara>
+<orderedlist numeration="arabic">
+<listitem>
+<simpara>
+How to connect two processes together by using the channel declarations
+</simpara>
+</listitem>
+<listitem>
+<simpara>
+How to <literal>resume</literal> the script execution and skip cached steps
+</simpara>
+</listitem>
+<listitem>
+<simpara>
+How to use the <literal>tag</literal> directive to provide a more readable execution output
+</simpara>
+</listitem>
+<listitem>
+<simpara>
+How to use the <literal>publishDir</literal> directive to store a process results in a path of your choice
+</simpara>
+</listitem>
+</orderedlist>
+</section>
+<section id="_quality_control">
+<title>Quality control</title>
+<simpara>Next, we implement a FASTQC quality control step for your input reads (using the label <literal>fastqc</literal>). The inputs are the same as the read pairs used in the <literal>quantification</literal> step.</simpara>
+<simpara>You can run it by using the following command:</simpara>
+<literallayout class="monospaced">nextflow run script5.nf -resume</literallayout>
+<simpara>Nextflow DSL2 knows to split the <literal>reads_pair_ch</literal> into two identical channels as they are required twice as an input for both of the <literal>fastqc</literal> and the <literal>quantification</literal> process.</simpara>
+</section>
+<section id="_multiqc_report">
+<title>MultiQC report</title>
+<simpara>This step collects the outputs from the <literal>quantification</literal> and <literal>fastqc</literal> processes to create
+a final report using the <ulink url="http://multiqc.info/">MultiQC</ulink> tool.</simpara>
+<simpara>Execute the next script with the following command:</simpara>
+<literallayout class="monospaced">nextflow run script6.nf -resume --reads 'data/ggal/*_{1,2}.fq'</literallayout>
+<simpara>It creates the final report in the <literal>results</literal> folder in the current <literal>work</literal> directory.</simpara>
+<simpara>In this script, note the use of the <ulink url="https://www.nextflow.io/docs/latest/operator.html#mix">mix,window="_blank"</ulink>
+and <ulink url="https://www.nextflow.io/docs/latest/operator.html#collect">collect,window="_blank"</ulink> operators chained
+together to gather the outputs of the <literal>quantification</literal> and <literal>fastqc</literal> processes as a single input. <ulink url="https://www.nextflow.io/docs/latest/operator.html">Operators</ulink> can be used to combine and transform channels.</simpara>
+<literallayout class="monospaced">multiqc(quant_ch.mix(fastqc_ch).collect())</literallayout>
+<simpara>We only want one task of MultiQC to be executed to produces one report. Therefore, we use the <literal>mix</literal> channel operator to combine the two channels followed by the <literal>collect</literal> operator, to return the complete channel contents as a single element.</simpara>
+<simpara>In this step you have learned:</simpara>
+<orderedlist numeration="arabic">
+<listitem>
+<simpara>
+How to collect many outputs to a single input with the <literal>collect</literal> operator
+</simpara>
+</listitem>
+<listitem>
+<simpara>
+How to <literal>mix</literal> two channels into a single channel
+</simpara>
+</listitem>
+<listitem>
+<simpara>
+How to chain two or more operators together
+</simpara>
+</listitem>
+</orderedlist>
+</section>
+<section id="_handle_completion_event">
+<title>Handle completion event</title>
+<simpara>This step shows how to execute an action when the pipeline completes the execution.</simpara>
+<simpara>Note that Nextflow processes define the execution of <emphasis role="strong">asynchronous</emphasis> tasks i.e., they are not
+executed one after another as if they were written in the pipeline script in a
+common <emphasis role="strong">imperative</emphasis> programming language.</simpara>
+<simpara>The script uses the <literal>workflow.onComplete</literal> event handler to print a confirmation message
+when the script completes.</simpara>
+<simpara>Try to run it by using the following command:</simpara>
+<literallayout class="monospaced">nextflow run script7.nf -resume --reads 'data/ggal/*_{1,2}.fq'</literallayout>
+</section>
+<section id="_email_notifications">
+<title>Email notifications</title>
+<simpara>Send a notification email when the workflow execution completes using the <literal>-N &lt;email address&gt;</literal>
+command-line option.</simpara>
+<simpara>Note: this requires the configuration of a SMTP server in the nextflow config
+file. Below is an example <literal>nextflow.config</literal> file showing the settings you would have to configure:</simpara>
+<programlisting language="config" linenumbering="linenums">mail {
+  from = 'info@nextflow.io'
+  smtp.host = 'email-smtp.eu-west-1.amazonaws.com'
+  smtp.port = 587
+  smtp.user = "xxxxx"
+  smtp.password = "yyyyy"
+  smtp.auth = true
+  smtp.starttls.enable = true
+  smtp.starttls.required = true
+}</programlisting>
+<simpara>See <ulink url="https://www.nextflow.io/docs/latest/mail.html#mail-configuration">mail documentation,window="_blank"</ulink>
+for details.</simpara>
+</section>
+<section id="_custom_scripts">
+<title>Custom scripts</title>
+<simpara>Real-world pipelines use a lot of custom user scripts (BASH, R, Python, etc.) Nextflow
+allows you to consistently use and manage these scripts. Simply put them
+in a directory named <literal>bin</literal> in the pipeline project root. They will be automatically added
+to the pipeline execution <literal>PATH</literal>.</simpara>
+<simpara>For example, create a file named <literal>fastqc.sh</literal> with the following content:</simpara>
+<programlisting language="bash" linenumbering="linenums">#!/bin/bash
+set -e
+set -u
+
+sample_id=${1}
+reads=${2}
+
+mkdir fastqc_${sample_id}_logs
+fastqc -o fastqc_${sample_id}_logs -f fastq -q ${reads}</programlisting>
+<simpara>Save it, give execute permission, and move it into the <literal>bin</literal> directory as shown below:</simpara>
+<programlisting language="bash" linenumbering="linenums">chmod +x fastqc.sh
+mkdir -p bin
+mv fastqc.sh bin</programlisting>
+<simpara>Then, open the &#8216;script7.nf` file and replace the <literal>fastqc</literal> process&#8217; script with
+the following code:</simpara>
+<programlisting language="nextflow" linenumbering="linenums">  script:
+  """
+  fastqc.sh "$sample_id" "$reads"
+  """</programlisting>
+<simpara>Run it as before:</simpara>
+<screen>nextflow run script7.nf -resume --reads 'data/ggal/*_{1,2}.fq'</screen>
+<simpara>In this step you have learned:</simpara>
+<orderedlist numeration="arabic">
+<listitem>
+<simpara>
+How to write or use existing custom scripts in your Nextflow pipeline.
+</simpara>
+</listitem>
+<listitem>
+<simpara>
+How to avoid the use of absolute paths by having your scripts in the <literal>bin/</literal> folder.
+</simpara>
+</listitem>
+</orderedlist>
+</section>
+<section id="_metrics_and_reports">
+<title>Metrics and reports</title>
+<simpara>Nextflow can produce multiple reports and charts providing several runtime metrics and execution information.</simpara>
+<simpara>Run the <ulink url="https://github.com/nextflow-io/rnaseq-nf">rnaseq-nf,window="_blank"</ulink> pipeline
+previously introduced as shown below:</simpara>
+<literallayout class="monospaced">nextflow run rnaseq-nf -with-docker -with-report -with-trace -with-timeline -with-dag dag.png</literallayout>
+<simpara>The <literal>-with-docker</literal> option launches each task of the execution as a Docker container run command.</simpara>
+<simpara>The <literal>-with-report</literal> option enables the creation of the workflow execution report. Open
+the file <literal>report.html</literal> with a browser to see the report created with the above command.</simpara>
+<simpara>The <literal>-with-trace</literal> option enables the creation of a tab separated file containing runtime
+information for each executed task. Check the <literal>trace.txt</literal> for an example.</simpara>
+<simpara>The <literal>-with-timeline</literal> option enables the creation of the workflow timeline report showing
+how processes were executed over time. This may be useful to identify the most time consuming
+tasks and bottlenecks. See an example at <ulink url="https://www.nextflow.io/docs/latest/tracing.html#timeline-report">this link,window="_blank"</ulink>.</simpara>
+<simpara>Finally, the <literal>-with-dag</literal> option enables the rendering of the workflow execution direct acyclic graph
+representation. Note: This feature requires the installation of <ulink url="http://www.graphviz.org/">Graphviz,window="_blank"</ulink> on your computer.
+See <ulink url="https://www.nextflow.io/docs/latest/tracing.html#dag-visualisation">here,window="_blank"</ulink> for further details.
+Then try running :</simpara>
+dot -Tpng dag.dot &gt; graph.png
+open graph.png</programlisting>
+<simpara>Note: runtime metrics may be incomplete for run short running tasks as in the case of this tutorial.</simpara>
+<note><simpara>You view the HTML files by right-clicking on the file name in the left side-bar and choosing the
+<emphasis role="strong">Preview</emphasis> menu item.</simpara></note>
+</section>
+<section id="_run_a_project_from_github">
+<title>Run a project from GitHub</title>
+<simpara>Nextflow allows the execution of a pipeline project directly from a GitHub repository (or similar services, e.g., BitBucket and GitLab).</simpara>
+<simpara>This simplifies the sharing and deployment of complex projects and tracking changes in a consistent manner.</simpara>
+<simpara>The following GitHub repository hosts a complete version of the workflow introduced in this tutorial:</simpara>
+<simpara><ulink url="https://github.com/nextflow-io/rnaseq-nf">https://github.com/nextflow-io/rnaseq-nf</ulink></simpara>
+<simpara>You can run it by specifying the project name and launching each task of the execution as a Docker container run command:</simpara>
+<literallayout class="monospaced">nextflow run nextflow-io/rnaseq-nf -with-docker</literallayout>
+<simpara>It automatically downloads the container and stores it in the <literal>$HOME/.nextflow</literal> folder.</simpara>
+<simpara>Use the command <literal>info</literal> to show the project information:</simpara>
+<literallayout class="monospaced">nextflow info nextflow-io/rnaseq-nf</literallayout>
+<simpara>Nextflow allows the execution of a specific revision of your project by using the <literal>-r</literal> command line option. For example:</simpara>
+<literallayout class="monospaced">nextflow run nextflow-io/rnaseq-nf -r dev</literallayout>
+<simpara>Revision are defined by using Git tags or branches defined in the project repository.</simpara>
+<simpara>Tags enable precise control of the changes in your project files and dependencies over time.</simpara>
+</section>
+<section id="_more_resources">
+<title>More resources</title>
+<itemizedlist>
+<listitem>
+<simpara>
+<ulink url="http://docs.nextflow.io">Nextflow documentation,window="_blank"</ulink> - The Nextflow docs home.
+</simpara>
+</listitem>
+<listitem>
+<simpara>
+<ulink url="https://github.com/nextflow-io/patterns">Nextflow patterns,window="_blank"</ulink> - A collection of Nextflow implementation patterns.
+</simpara>
+</listitem>
+<listitem>
+<simpara>
+<ulink url="https://github.com/CRG-CNAG/CalliNGS-NF">CalliNGS-NF,window="_blank"</ulink> - A Variant calling pipeline implementing GATK best practices.
+</simpara>
+</listitem>
+<listitem>
+<simpara>
+<ulink url="http://nf-co.re/">nf-core,window="_blank"</ulink> - A community collection of production ready genomic pipelines.
+</simpara>
+</listitem>
+</itemizedlist>
+</section>
+</article>
