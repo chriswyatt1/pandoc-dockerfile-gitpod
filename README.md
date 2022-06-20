@@ -13,11 +13,13 @@ pandoc -f docbook -t gfm rnaseq.xml -o rnaseq.md
 
 
 
-# EXAMPLE, not working commands:  Unicode symbols were mangled in foo.md. Quick workaround:
+# Other test commands
+
+not working:  Unicode symbols were mangled in foo.md. Quick workaround:
 
 iconv -t utf-8 rnaseq.xml | pandoc -f docbook -t gfm | iconv -f utf-8 > rnaseq.md
 
-# EXAMPLE, not working commands: Pandoc inserted hard line breaks at 72 characters. Removed like so:
+Not working: Pandoc inserted hard line breaks at 72 characters. Removed like so:
 
 $ pandoc -f docbook -t gfm --wrap=none # don't wrap lines at all
 
